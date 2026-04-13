@@ -44,6 +44,9 @@ COPY --from=builder /tmp/meteor-out/bundle ./
 
 RUN cd programs/server && npm install
 
+COPY scripts/render-start.sh ./scripts/render-start.sh
+RUN chmod +x ./scripts/render-start.sh
+
 EXPOSE 3000
 
-CMD ["node", "main.js"]
+CMD ["./scripts/render-start.sh"]

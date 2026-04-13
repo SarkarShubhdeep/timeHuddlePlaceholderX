@@ -42,12 +42,12 @@ This app ships as a **Docker** image: multi-stage build runs `meteor build`, the
 
    | Variable     | Value |
    | ------------ | ----- |
-   | `MONGO_URL`  | Your Mongo connection string (must include database name). |
-   | `ROOT_URL`   | Public HTTPS URL of this Render service, e.g. `https://timehuddle-placeholder.onrender.com` (no trailing slash). |
-   | `BIND_IP`    | Optional; defaults to `0.0.0.0` in the image so the process accepts external connections. |
-   | `NODE_ENV`   | `production` (set in [`render.yaml`](render.yaml) if you use a Blueprint). |
+   | `MONGO_URL`  | **Required.** Your Mongo connection string (include a database name). |
+   | `ROOT_URL`   | **Optional on Render.** If unset, the container entrypoint sets it from Render’s built-in `RENDER_EXTERNAL_URL` (your `https://…onrender.com` URL). Set `ROOT_URL` yourself when you use a **custom domain** so it matches the public URL. |
+   | `BIND_IP`    | Optional; defaults to `0.0.0.0` in the image. |
+   | `NODE_ENV`   | `production` (optional; also set in [`render.yaml`](render.yaml) for Blueprints). |
 
-   Render injects **`PORT`**; Meteor reads it automatically.
+   Render injects **`PORT`** and **`RENDER_EXTERNAL_URL`**; Meteor reads `PORT` automatically.
 
 5. Deploy. First build can take **15–25 minutes** while Meteor downloads toolchains inside Docker.
 

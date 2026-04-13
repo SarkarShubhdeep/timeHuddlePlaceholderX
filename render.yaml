@@ -13,6 +13,7 @@ services:
         value: production
       - key: BIND_IP
         value: "0.0.0.0"
+      # Optional: override public URL (e.g. custom domain). If unset, scripts/render-start.sh uses RENDER_EXTERNAL_URL.
       - key: ROOT_URL
         sync: false
       - key: MONGO_URL
