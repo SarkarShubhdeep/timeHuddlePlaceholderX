@@ -1,0 +1,16 @@
+node_modules
+npm-debug.log
+.meteor/local
+.git
+.gitignore
+.DS_Store
+**/.DS_Store
+*.md
+!README.md
+_build
+**/.rsdoctor
+**/.cache
+tmp
+temp
+.env
+.env.*

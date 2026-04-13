@@ -1,0 +1,19 @@
+# Render Blueprint: https://render.com/docs/infrastructure-as-code
+# After connecting the repo, set ROOT_URL and MONGO_URL in the dashboard
+# (Blueprint prompts for sync: false vars on first apply).
+
+services:
+  - type: web
+    name: timehuddle-placeholder
+    runtime: docker
+    region: oregon
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: BIND_IP
+        value: "0.0.0.0"
+      - key: ROOT_URL
+        sync: false
+      - key: MONGO_URL
+        sync: false
