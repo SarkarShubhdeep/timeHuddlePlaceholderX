@@ -8,6 +8,7 @@ import {
     getSnapshotUrl,
 } from "@sarkarshubh/activitywork-sdk";
 import { getActivityWorkClient } from "./createClient.js";
+import { getLastImportRecord } from "./importHttp.js";
 
 /** Preview sample cap to limit load and abuse (placeholder app; production should auth). */
 const PREVIEW_LIMIT_MAX = 100;
@@ -52,6 +53,11 @@ function mapSdkError(err) {
 }
 
 Meteor.methods({
+    /** Latest successful snapshot POST (browser import or activitywork-runtime send). */
+    async "activityWork.getLastImport"() {
+        return getLastImportRecord();
+    },
+
     async "activityWork.checkHealth"() {
         // Production TimeHuddle should gate this behind authentication.
         try {

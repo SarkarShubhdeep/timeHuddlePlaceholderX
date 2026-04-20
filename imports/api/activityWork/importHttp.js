@@ -9,10 +9,30 @@ import {
 /** Canonical path for manual snapshot import (`TIMEHUDDLE_IMPORT_URL` in runtime handoffs). */
 export const ACTIVITYWORK_IMPORT_PATH = "/api/activitywork/import";
 
+/** GET returns the raw JSON body of the last successful import (same auth rules as POST when secret is set). */
+export const ACTIVITYWORK_IMPORT_LATEST_JSON_PATH =
+    "/api/activitywork/import/latest";
+
 const IMPORT_HEADER_SECRET = "x-activitywork-import-secret";
 
-/** @type {{ storedAt: string; byteLength: number; range?: string; eventCount?: number } | null} */
+/**
+ * Last successful snapshot import (HTTP POST). In-memory only.
+ * @typedef {{
+ *   storedAt: string;
+ *   byteLength: number;
+ *   range?: string;
+ *   eventCount?: number;
+ *   bucketId?: string;
+ *   truncated?: boolean;
+ *   userAgent?: string;
+ * }} LastImportRecord
+ */
+
+/** @type {LastImportRecord | null} */
 let lastImportRecord = null;
+
+/** @type {string | null} Raw UTF-8 body of the last successful import (for GET latest). */
+let lastImportRawJsonBody = null;
 
 /** Production Time Huddle should persist imports in Mongo or another store; placeholder only. */
 export function getLastImportRecord() {
@@ -121,10 +141,14 @@ function readBodyLimited(req, maxBytes) {
     });
 }
 
-function corsHeaders() {
+/**
+ * @param {{ methods?: string }} [opts]
+ */
+function corsHeaders(opts) {
+    const methods = opts?.methods ?? "POST, OPTIONS";
     return {
         "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Methods": methods,
         "Access-Control-Allow-Headers": `Content-Type, Authorization, ${IMPORT_HEADER_SECRET}`,
         "Access-Control-Max-Age": "86400",
     };
@@ -143,6 +167,86 @@ function sendJson(res, status, body) {
     });
     res.end(payload);
 }
+
+const CORS_IMPORT_ALL = {
+    methods: "GET, HEAD, OPTIONS, POST",
+};
+
+WebApp.connectHandlers.use((req, res, next) => {
+    const pathOnly = (req.url ?? "").split("?")[0];
+    if (pathOnly !== ACTIVITYWORK_IMPORT_LATEST_JSON_PATH) {
+        next();
+        return;
+    }
+
+    const secret = process.env.ACTIVITYWORK_IMPORT_SHARED_SECRET;
+    if (!importSecretOk(req, secret)) {
+        res.writeHead(401, {
+            "Content-Type": "application/json; charset=utf-8",
+            ...corsHeaders(CORS_IMPORT_ALL),
+        });
+        res.end(
+            JSON.stringify({
+                error: "Invalid or missing import credentials",
+                code: IMPORT_ERROR_CODES.unauthorized,
+            }),
+        );
+        return;
+    }
+
+    if (req.method === "OPTIONS") {
+        res.writeHead(204, corsHeaders(CORS_IMPORT_ALL));
+        res.end();
+        return;
+    }
+
+    if (req.method !== "GET" && req.method !== "HEAD") {
+        res.writeHead(405, {
+            "Content-Type": "application/json; charset=utf-8",
+            ...corsHeaders(CORS_IMPORT_ALL),
+        });
+        res.end(
+            JSON.stringify({
+                error: "Method not allowed",
+                code: "activity-work-import-latest-method",
+            }),
+        );
+        return;
+    }
+
+    if (lastImportRawJsonBody == null) {
+        res.writeHead(404, {
+            "Content-Type": "application/json; charset=utf-8",
+            ...corsHeaders(CORS_IMPORT_ALL),
+        });
+        res.end(
+            JSON.stringify({
+                error: "No snapshot imported yet",
+                code: "activity-work-import-latest-empty",
+            }),
+        );
+        return;
+    }
+
+    const byteLength = Buffer.byteLength(lastImportRawJsonBody, "utf8");
+    if (req.method === "HEAD") {
+        res.writeHead(200, {
+            "Content-Type": "application/json; charset=utf-8",
+            "Content-Length": String(byteLength),
+            "Cache-Control": "no-store",
+            ...corsHeaders(CORS_IMPORT_ALL),
+        });
+        res.end();
+        return;
+    }
+
+    res.writeHead(200, {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "no-store",
+        ...corsHeaders(CORS_IMPORT_ALL),
+    });
+    res.end(lastImportRawJsonBody, "utf8");
+});
 
 WebApp.connectHandlers.use((req, res, next) => {
     const pathOnly = (req.url ?? "").split("?")[0];
@@ -244,12 +348,28 @@ WebApp.connectHandlers.use((req, res, next) => {
             eventCount = p.events.length;
         }
 
+        const uaRaw = req.headers["user-agent"];
+        const userAgent =
+            typeof uaRaw === "string" && uaRaw.length > 0
+                ? uaRaw.length > 120
+                    ? `${uaRaw.slice(0, 120)}…`
+                    : uaRaw
+                : undefined;
+        const bucketId =
+            typeof p.bucketId === "string" && p.bucketId.trim().length > 0
+                ? p.bucketId.trim()
+                : undefined;
+
         lastImportRecord = {
             storedAt: new Date().toISOString(),
             byteLength: buf.length,
             ...(range != null ? { range } : {}),
             ...(eventCount != null ? { eventCount } : {}),
+            ...(bucketId != null ? { bucketId } : {}),
+            ...(p.truncated === true ? { truncated: true } : {}),
+            ...(userAgent != null ? { userAgent } : {}),
         };
+        lastImportRawJsonBody = text;
 
         sendJson(res, 200, {
             ok: true,
