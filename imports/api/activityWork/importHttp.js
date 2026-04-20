@@ -40,8 +40,20 @@ export function getLastImportRecord() {
 }
 
 /**
- * Preset id for snapshot `range` (legacy string or {@link import("@sarkarshubh/activitywork-sdk").SnapshotRangeBlock}).
- * @param {import("@sarkarshubh/activitywork-sdk").SnapshotOkFields["range"]} range
+ * Raw UTF-8 JSON body of the last successful import. Used by the `Pushed Snapshot`
+ * view to render the full payload (events) without re-shipping the shared secret
+ * through the HTTP GET route.
+ * @returns {string | null}
+ */
+export function getLastImportRawBody() {
+    return lastImportRawJsonBody;
+}
+
+/**
+ * Preset id for snapshot `range`. Accepts either the legacy `"1h"`-style string
+ * or the modern `{ preset, label?, start?, end? }` object that aw-gateway sends.
+ *
+ * @param {unknown} range
  * @returns {string | undefined}
  */
 function snapshotRangePreset(range) {

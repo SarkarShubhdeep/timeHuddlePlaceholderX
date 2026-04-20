@@ -31,12 +31,13 @@ flowchart LR
   - **HTTP POST** route (e.g. WebApp/connect handler) for the runtime’s server-side `fetch` to hit.
    **Pick one** and document it in the runtime handoff so `TIMEHUDDLE_IMPORT_URL` points to the right URL.
    **TimeHuddlePlaceholder:** canonical route is **`POST /api/activitywork/import`** (see `imports/api/activityWork/importHttp.js` and `docs/agent-handover-activitywork-timehuddle.md`).
-2. **Validation:** Use `@sarkarshubh/activitywork-sdk` **`validateSnapshotPayload`** (≥ **0.2.0-beta.0**); this placeholder calls it from `imports/api/activityWork/validateSnapshotImport.js`.
+2. **Validation:** Lightweight inline check in `imports/api/activityWork/validateSnapshotImport.js` — accepts any plain JSON object, rejects explicit `ok: false` envelopes, requires `events` to be an array when present. No SDK dependency on the import/receive path; we just store whatever `activitywork-gateway` sends.
 3. **Limits:** `ACTIVITYWORK_IMPORT_MAX_BYTES` (or similar) on the server; reject oversize bodies before parse.
 4. **Rate limiting:** Add a placeholder (e.g. per-connection throttle or TODO with suggested cap) so imports cannot spam the server in the placeholder app.
 5. **Auth / placeholder security:** Methods are still unauthenticated — document that production must gate imports behind auth. Optional shared secret header for server-to-server from runtime POST (`ACTIVITYWORK_IMPORT_SHARED_SECRET`).
 6. **Persistence:** Stub acceptable (in-memory last import per server restart, or a small Mongo collection). Document schema intent for “real” Time Huddle.
 7. **UI:** Section **“Import from local ActivityWork”** — paste JSON, file pick, or instructions linking to runtime “Send”. Keep the existing “live ActivityWork” toggle **labeled clearly** (e.g. “ActivityWork reachable from **this server**”) so it is not confused with local-only data.
+   - **Pushed Snapshot tab** (`imports/ui/views/SnapshotView.jsx`): dedicated view for the full payload received via POST `/api/activitywork/import`. Reads from the Meteor method `activityWork.getLastImportPayload` (server-side parse of `getLastImportRawBody()`), polls every 6s while visible, and renders a metadata header (received-at, range, bucket, event count, total active time, source host / user-agent) plus an events table (Start / Duration / Watcher / App / Title / URL). The Overview tab keeps the compact "Latest snapshot push" card and the legacy paste / file import and live ActivityWork toggle.
 
 ## Acceptance criteria
 
