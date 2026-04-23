@@ -22,3 +22,5 @@ static-html@1.5.0             # Define static page content in .html files
 
 rspack@1.0.0                  # Integrate Rspack into Meteor for client and server app bundling
 meteortesting:mocha
+accounts-password
+react-meteor-data

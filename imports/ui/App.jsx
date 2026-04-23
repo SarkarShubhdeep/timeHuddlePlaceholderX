@@ -1,5 +1,7 @@
 import * as React from "react";
-import { ExternalLink, Moon, Sun } from "lucide-react";
+import { Meteor } from "meteor/meteor";
+import { useTracker } from "meteor/react-meteor-data";
+import { ExternalLink, LogOut, Moon, Sun } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -16,6 +18,7 @@ import {
     TabsList,
     TabsTrigger,
 } from "@/components/ui/tabs";
+import { LandingView } from "@/ui/views/LandingView";
 import { OverviewView } from "@/ui/views/OverviewView";
 import { SnapshotView } from "@/ui/views/SnapshotView";
 
@@ -38,8 +41,14 @@ function readInitialTab() {
 }
 
 export const App = () => {
+    const { user, loggingIn } = useTracker(() => ({
+        user: Meteor.user(),
+        loggingIn: Meteor.loggingIn(),
+    }));
     const [isDark, setIsDark] = React.useState(readInitialDark);
     const [activeTab, setActiveTab] = React.useState(readInitialTab);
+
+    const userEmail = user?.emails?.[0]?.address ?? null;
 
     React.useEffect(() => {
         const root = document.documentElement;
@@ -56,9 +65,61 @@ export const App = () => {
         window.localStorage.setItem(ACTIVE_TAB_STORAGE_KEY, activeTab);
     }, [activeTab]);
 
+    if (!user) {
+        return (
+            <div className="min-h-screen flex flex-col bg-background text-foreground">
+                <div className="flex flex-1 flex-col items-center gap-4 p-4 w-full max-w-3xl mx-auto">
+                    <LandingView loggingIn={loggingIn} />
+                    <footer className="w-full flex justify-center py-3">
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="rounded-full"
+                            onClick={() => setIsDark((d) => !d)}
+                            aria-label={
+                                isDark
+                                    ? "Switch to light mode"
+                                    : "Switch to dark mode"
+                            }
+                        >
+                            {isDark ? (
+                                <Sun className="h-5 w-5" aria-hidden />
+                            ) : (
+                                <Moon className="h-5 w-5" aria-hidden />
+                            )}
+                        </Button>
+                    </footer>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen flex flex-col bg-background text-foreground">
             <div className="flex flex-1 flex-col items-center gap-2 p-4 w-full max-w-3xl mx-auto">
+                <div className="w-full max-w-lg flex flex-wrap items-center justify-end gap-2">
+                    {userEmail ? (
+                        <span className="text-xs text-muted-foreground truncate max-w-[min(100%,14rem)] mr-auto">
+                            {userEmail}
+                        </span>
+                    ) : (
+                        <span className="text-xs text-muted-foreground mr-auto">
+                            Signed in
+                        </span>
+                    )}
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="shadow-none"
+                        onClick={() => Meteor.logout()}
+                    >
+                        <LogOut className="h-4 w-4" aria-hidden />
+                        Sign out
+                    </Button>
+                </div>
+
                 <Card className="w-full max-w-lg shadow-none">
                     <CardHeader>
                         <CardTitle className="text-2xl">
