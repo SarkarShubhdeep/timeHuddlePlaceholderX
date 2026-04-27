@@ -11,6 +11,12 @@ const DAY = "2026-04-23";
 const USER_AGENT = "aw-gateway/0.2.0 (+push)";
 const SOURCE = { app: "aw-gateway", host: "Shubhdeeps-MacBook-Pro.local" };
 const BUCKET_ID = "aw-watcher-afk_Shubhdeeps-MacBook-Pro.local";
+const MOCK_USER_EMAILS = [
+    "alex.lee@example.com",
+    "morgan.chen@example.com",
+    "samir.patel@example.com",
+    "taylor.rivera@example.com",
+];
 
 /**
  * @param {Date} d
@@ -78,6 +84,7 @@ function mockEvents(start, end) {
  * @property {string} startsAt
  * @property {string} endsAt
  * @property {string} label
+ * @property {string} userEmail
  * @property {{
  *   record: { storedAt: string; byteLength: number; userAgent: string };
  *   payload: Record<string, unknown>;
@@ -98,6 +105,7 @@ function makeEntry(hour, minute) {
     const events = mockEvents(start, end);
     const eventCount = events.length;
     const id = `${DAY}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+    const slot = Math.floor((hour * 60 + minute) / 30) % MOCK_USER_EMAILS.length;
     const payload = {
         schemaVersion: 1,
         bucketId: BUCKET_ID,
@@ -114,6 +122,7 @@ function makeEntry(hour, minute) {
         startsAt: toIso(start),
         endsAt: toIso(end),
         label: formatRangeLabel(toIso(start), toIso(end)),
+        userEmail: MOCK_USER_EMAILS[slot],
         data: {
             record: {
                 storedAt: toIso(new Date(end.getTime() + 5_000)),

@@ -1,3 +1,4 @@
+import { Meteor } from "meteor/meteor";
 import { WebApp } from "meteor/webapp";
 
 import { hashActivityWorkPushToken } from "../pushToken/hashToken.js";
@@ -139,6 +140,24 @@ async function resolveUserIdFromRequest(req) {
         { fields: { userId: 1 } },
     );
     return doc?.userId ?? null;
+}
+
+/**
+ * Resolve the primary account email for a Meteor user.
+ *
+ * @param {string | null} userId
+ * @returns {Promise<string | undefined>}
+ */
+async function resolveUserEmail(userId) {
+    if (!userId) return undefined;
+    const userDoc = await Meteor.users.findOneAsync(
+        { _id: userId },
+        { fields: { emails: 1 } },
+    );
+    const address = userDoc?.emails?.[0]?.address;
+    return typeof address === "string" && address.length > 0
+        ? address
+        : undefined;
 }
 
 /**
@@ -462,8 +481,10 @@ WebApp.connectHandlers.use((req, res, next) => {
 
         if (auth.userId) {
             try {
+                const ownerEmail = await resolveUserEmail(auth.userId);
                 await ActivityWorkImports.insertAsync({
                     userId: auth.userId,
+                    ...(ownerEmail != null ? { ownerEmail } : {}),
                     receivedAt: new Date(),
                     byteLength: buf.length,
                     ...(range != null ? { range } : {}),

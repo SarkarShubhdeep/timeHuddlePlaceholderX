@@ -24,3 +24,19 @@ Meteor.publish("activityWork.userImports", function userImports(rawLimit) {
         { sort: { receivedAt: -1 }, limit: n },
     );
 });
+
+/**
+ * Public log view of recent pushed snapshots across users. Currently available
+ * to any signed-in user.
+ */
+Meteor.publish("activityWork.publicImports", function publicImports(rawLimit) {
+    if (!this.userId) {
+        this.ready();
+        return undefined;
+    }
+    const n =
+        typeof rawLimit === "number" && Number.isFinite(rawLimit)
+            ? Math.min(Math.max(Math.floor(rawLimit), 1), MAX_LIMIT)
+            : DEFAULT_LIMIT;
+    return ActivityWorkImports.find({}, { sort: { receivedAt: -1 }, limit: n });
+});

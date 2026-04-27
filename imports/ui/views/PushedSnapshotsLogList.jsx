@@ -113,9 +113,14 @@ function PushedSnapshotsLogRow({ entry, menuOpen, onToggleMenu, onCloseMenu, onO
             onKeyDown={handleRowKey}
             className="group relative flex cursor-pointer items-center justify-between gap-3 px-2 py-2 text-sm hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-none"
         >
-            <span className="truncate font-mono text-[12px] text-foreground">
-                {entry.label}
-            </span>
+            <div className="min-w-0">
+                <p className="truncate text-xs text-muted-foreground">
+                    {entry.userEmail}
+                </p>
+                <p className="truncate font-mono text-[12px] text-foreground">
+                    {entry.label}
+                </p>
+            </div>
             <div className="relative shrink-0">
                 <button
                     type="button"

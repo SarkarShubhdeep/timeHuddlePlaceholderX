@@ -1,8 +1,8 @@
 import * as React from "react";
+import { Meteor } from "meteor/meteor";
+import { useTracker } from "meteor/react-meteor-data";
 import {
-    CalendarClock,
     Camera,
-    ChevronLeft,
     FileClock,
     ListTree,
 } from "lucide-react";
@@ -15,43 +15,149 @@ import {
     BreadcrumbPage,
     BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import { ActivityWorkImports } from "@/api/activityWork/imports.collection";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { PushedSnapshotsLogList } from "@/ui/views/PushedSnapshotsLogList";
-import { PUSHED_SNAPSHOTS_MOCK } from "@/ui/views/pushedSnapshotsMock";
 import {
     SnapshotPayloadPanel,
     SnapshotRefreshButton,
 } from "@/ui/views/SnapshotView";
 
-// TODO(multitenant-phase-B/D): replace PUSHED_SNAPSHOTS_MOCK with a per-user
-// Meteor method/publication listing the authenticated user's pushed snapshots,
-// and wire the refresh button to re-subscribe / re-call the method.
+const PUBLIC_IMPORTS_LIMIT = 100;
+
+/**
+ * @param {unknown} value
+ * @returns {Date | null}
+ */
+function toDate(value) {
+    if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+    if (typeof value === "string" && value.length > 0) {
+        const d = new Date(value);
+        if (!Number.isNaN(d.getTime())) return d;
+    }
+    return null;
+}
+
+/**
+ * @param {Date} start
+ * @param {Date} end
+ * @returns {string}
+ */
+function formatRangeLabel(start, end) {
+    const dateStr = start.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+    });
+    const timeFmt = (d) =>
+        d.toLocaleTimeString("en-US", {
+            hour: "numeric",
+            minute: "2-digit",
+        });
+    return `${dateStr}, ${timeFmt(start)} - ${timeFmt(end)}`;
+}
+
+/**
+ * @param {Record<string, unknown>} payload
+ * @returns {{ startsAt: Date | null; endsAt: Date | null }}
+ */
+function getPayloadRange(payload) {
+    const range = payload.range;
+    if (!range || typeof range !== "object" || Array.isArray(range)) {
+        return { startsAt: null, endsAt: null };
+    }
+    const startsAt = toDate(/** @type {{ start?: unknown }} */ (range).start);
+    const endsAt = toDate(/** @type {{ end?: unknown }} */ (range).end);
+    return { startsAt, endsAt };
+}
+
+/**
+ * @param {import("@/api/activityWork/imports.collection").ActivityWorkImportDoc & { _id?: string }} doc
+ */
+function mapDocToLogEntry(doc) {
+    const payload =
+        doc.payload && typeof doc.payload === "object" && !Array.isArray(doc.payload)
+            ? doc.payload
+            : {};
+    const receivedAt = toDate(doc.receivedAt) ?? new Date();
+    const { startsAt, endsAt } = getPayloadRange(payload);
+    const startDate = startsAt ?? receivedAt;
+    const endDate = endsAt ?? startDate;
+    const ownerEmail =
+        typeof doc.ownerEmail === "string" && doc.ownerEmail.length > 0
+            ? doc.ownerEmail
+            : typeof doc.userId === "string" && doc.userId.length > 0
+              ? `${doc.userId}@unknown.local`
+              : "unknown@unknown.local";
+
+    return {
+        id: doc._id ?? `${receivedAt.toISOString()}-${doc.userId}`,
+        startsAt: startDate.toISOString(),
+        endsAt: endDate.toISOString(),
+        label: formatRangeLabel(startDate, endDate),
+        userEmail: ownerEmail,
+        data: {
+            record: {
+                storedAt: receivedAt.toISOString(),
+                byteLength:
+                    typeof doc.byteLength === "number" &&
+                    Number.isFinite(doc.byteLength)
+                        ? doc.byteLength
+                        : 0,
+                userAgent:
+                    typeof doc.userAgent === "string" ? doc.userAgent : "",
+            },
+            payload,
+        },
+    };
+}
 
 /**
  * Home grid cell: a two-mode "file system" for pushed snapshots.
  *
- * - No selection → shows a list of mock snapshot entries with a kebab menu.
+ * - No selection → shows a centralized list of pushed snapshot entries.
  * - Selection → shows the payload detail using {@link SnapshotPayloadPanel}.
  *
  * @param {{ className?: string }} props
  */
 export const PushedSnapshotsSection = ({ className }) => {
+    const [refreshTick, setRefreshTick] = React.useState(0);
     const [selectedId, setSelectedId] = React.useState(
         /** @type {string | null} */ (null),
     );
-    const selected = React.useMemo(
-        () =>
-            selectedId
-                ? (PUSHED_SNAPSHOTS_MOCK.find((e) => e.id === selectedId) ??
-                  null)
-                : null,
-        [selectedId],
+    const { entries, loading } = useTracker(
+        () => {
+            const handle = Meteor.subscribe(
+                "activityWork.publicImports",
+                PUBLIC_IMPORTS_LIMIT,
+            );
+            const docs = ActivityWorkImports.find(
+                {},
+                { sort: { receivedAt: -1 }, limit: PUBLIC_IMPORTS_LIMIT },
+            ).fetch();
+            return {
+                entries: docs.map(mapDocToLogEntry),
+                loading: !handle.ready(),
+            };
+        },
+        [refreshTick],
     );
 
-    // Mock-only for now; real refresh will live alongside the method call.
-    const loading = false;
-    const refresh = React.useCallback(async () => {}, []);
+    const selected = React.useMemo(
+        () => (selectedId ? entries.find((e) => e.id === selectedId) ?? null : null),
+        [entries, selectedId],
+    );
+
+    React.useEffect(() => {
+        if (!selectedId) return;
+        if (entries.some((entry) => entry.id === selectedId)) return;
+        setSelectedId(null);
+    }, [entries, selectedId]);
+
+    const refresh = React.useCallback(async () => {
+        setRefreshTick((n) => n + 1);
+    }, []);
 
     return (
         <Card className={className}>
@@ -136,7 +242,7 @@ export const PushedSnapshotsSection = ({ className }) => {
                         />
                     ) : (
                         <PushedSnapshotsLogList
-                            entries={PUSHED_SNAPSHOTS_MOCK}
+                            entries={entries}
                             onOpen={setSelectedId}
                         />
                     )}
