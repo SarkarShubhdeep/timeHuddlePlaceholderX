@@ -2,6 +2,7 @@ import * as React from "react";
 import { Meteor } from "meteor/meteor";
 import { useTracker } from "meteor/react-meteor-data";
 
+import { ActivityWorkImports } from "@/api/activityWork/imports.collection";
 import { LandingView } from "@/ui/views/LandingView";
 import { HomeView } from "@/ui/views/HomeView";
 import { ThemeToggleFooter } from "@/ui/ThemeToggleFooter";
@@ -33,6 +34,46 @@ export const App = () => {
             window.localStorage.setItem(THEME_STORAGE_KEY, "light");
         }
     }, [isDark]);
+
+    const userId = user?._id ?? null;
+    React.useEffect(() => {
+        if (!userId) return undefined;
+        const subscribedAt = new Date();
+        const handle = Meteor.subscribe("activityWork.userImports", 20);
+        const observer = ActivityWorkImports.find(
+            { userId },
+            { sort: { receivedAt: -1 }, limit: 20 },
+        ).observe({
+            addedAt(doc) {
+                const ts =
+                    doc?.receivedAt instanceof Date
+                        ? doc.receivedAt
+                        : doc?.receivedAt
+                          ? new Date(doc.receivedAt)
+                          : null;
+                if (ts && ts < subscribedAt) return;
+                // eslint-disable-next-line no-console
+                console.log(
+                    "[activitywork-import] new pushed snapshot",
+                    {
+                        _id: doc._id,
+                        userId: doc.userId,
+                        receivedAt: doc.receivedAt,
+                        range: doc.range,
+                        bucketId: doc.bucketId,
+                        eventCount: doc.eventCount,
+                        byteLength: doc.byteLength,
+                        userAgent: doc.userAgent,
+                    },
+                    doc.payload,
+                );
+            },
+        });
+        return () => {
+            observer.stop();
+            handle.stop();
+        };
+    }, [userId]);
 
     React.useEffect(() => {
         const onKeyDown = (e) => {

@@ -2,6 +2,7 @@ import { WebApp } from "meteor/webapp";
 
 import { hashActivityWorkPushToken } from "../pushToken/hashToken.js";
 import { ActivityWorkPushTokens } from "../pushToken/pushTokens.collection.js";
+import { ActivityWorkImports } from "./imports.collection.js";
 import {
     IMPORT_ERROR_CODES,
     getMaxImportBytes,
@@ -113,39 +114,56 @@ function getClientKey(req) {
 }
 
 /**
+ * Resolve a user's `_id` from the request's `Authorization: Bearer <token>` by
+ * hashing the bearer and looking it up in {@link ActivityWorkPushTokens}.
+ *
  * @param {import('http').IncomingMessage} req
- * @param {string | undefined} secret
+ * @returns {Promise<string | null>}
  */
-/**
- * @param {string} bearer
- * @returns {boolean}
- */
-function bearerMatchesUserPushToken(bearer) {
-    if (typeof bearer !== "string" || bearer.length === 0) return false;
+async function resolveUserIdFromRequest(req) {
+    const auth = req.headers.authorization;
+    if (typeof auth !== "string" || !auth.startsWith("Bearer ")) return null;
+    const bearer = auth.slice(7);
+    if (bearer.length === 0) return null;
     const tokenHash = hashActivityWorkPushToken(bearer);
-    return Boolean(
-        ActivityWorkPushTokens.findOne(
-            { tokenHash },
-            { fields: { _id: 1 } },
-        ),
+    const doc = await ActivityWorkPushTokens.findOneAsync(
+        { tokenHash },
+        { fields: { userId: 1 } },
     );
+    return doc?.userId ?? null;
 }
 
 /**
+ * Whether a request is allowed for the import endpoints. The Bearer can be:
+ *   - a valid per-user push token (preferred; `userId` is also returned for attribution), or
+ *   - the legacy `ACTIVITYWORK_IMPORT_SHARED_SECRET` (when configured).
+ *
+ * When the env secret is unset and no per-user token matches, requests pass
+ * (placeholder mode) but `userId` will be `null`.
+ *
  * @param {import('http').IncomingMessage} req
  * @param {string | undefined} secret
+ * @returns {Promise<{ ok: boolean; userId: string | null }>}
  */
-function importSecretOk(req, secret) {
-    if (secret == null || secret === "") return true;
+async function authorizeImport(req, secret) {
+    const userId = await resolveUserIdFromRequest(req);
+    if (userId) return { ok: true, userId };
+
+    if (secret == null || secret === "") return { ok: true, userId: null };
+
     const h = req.headers[IMPORT_HEADER_SECRET];
-    if (typeof h === "string" && h === secret) return true;
-    const auth = req.headers.authorization;
-    if (typeof auth === "string" && auth.startsWith("Bearer ")) {
-        const bearer = auth.slice(7);
-        if (bearer === secret) return true;
-        if (bearerMatchesUserPushToken(bearer)) return true;
+    if (typeof h === "string" && h === secret) {
+        return { ok: true, userId: null };
     }
-    return false;
+    const auth = req.headers.authorization;
+    if (
+        typeof auth === "string" &&
+        auth.startsWith("Bearer ") &&
+        auth.slice(7) === secret
+    ) {
+        return { ok: true, userId: null };
+    }
+    return { ok: false, userId: null };
 }
 
 /**
@@ -212,72 +230,81 @@ WebApp.connectHandlers.use((req, res, next) => {
     }
 
     const secret = process.env.ACTIVITYWORK_IMPORT_SHARED_SECRET;
-    if (!importSecretOk(req, secret)) {
-        res.writeHead(401, {
-            "Content-Type": "application/json; charset=utf-8",
-            ...corsHeaders(CORS_IMPORT_ALL),
-        });
-        res.end(
-            JSON.stringify({
-                error: "Invalid or missing import credentials",
-                code: IMPORT_ERROR_CODES.unauthorized,
-            }),
-        );
-        return;
-    }
 
-    if (req.method === "OPTIONS") {
-        res.writeHead(204, corsHeaders(CORS_IMPORT_ALL));
-        res.end();
-        return;
-    }
+    (async () => {
+        const authResult = await authorizeImport(req, secret);
+        if (!authResult.ok) {
+            res.writeHead(401, {
+                "Content-Type": "application/json; charset=utf-8",
+                ...corsHeaders(CORS_IMPORT_ALL),
+            });
+            res.end(
+                JSON.stringify({
+                    error: "Invalid or missing import credentials",
+                    code: IMPORT_ERROR_CODES.unauthorized,
+                }),
+            );
+            return;
+        }
 
-    if (req.method !== "GET" && req.method !== "HEAD") {
-        res.writeHead(405, {
-            "Content-Type": "application/json; charset=utf-8",
-            ...corsHeaders(CORS_IMPORT_ALL),
-        });
-        res.end(
-            JSON.stringify({
-                error: "Method not allowed",
-                code: "activity-work-import-latest-method",
-            }),
-        );
-        return;
-    }
+        if (req.method === "OPTIONS") {
+            res.writeHead(204, corsHeaders(CORS_IMPORT_ALL));
+            res.end();
+            return;
+        }
 
-    if (lastImportRawJsonBody == null) {
-        res.writeHead(404, {
-            "Content-Type": "application/json; charset=utf-8",
-            ...corsHeaders(CORS_IMPORT_ALL),
-        });
-        res.end(
-            JSON.stringify({
-                error: "No snapshot imported yet",
-                code: "activity-work-import-latest-empty",
-            }),
-        );
-        return;
-    }
+        if (req.method !== "GET" && req.method !== "HEAD") {
+            res.writeHead(405, {
+                "Content-Type": "application/json; charset=utf-8",
+                ...corsHeaders(CORS_IMPORT_ALL),
+            });
+            res.end(
+                JSON.stringify({
+                    error: "Method not allowed",
+                    code: "activity-work-import-latest-method",
+                }),
+            );
+            return;
+        }
 
-    const byteLength = Buffer.byteLength(lastImportRawJsonBody, "utf8");
-    if (req.method === "HEAD") {
+        if (lastImportRawJsonBody == null) {
+            res.writeHead(404, {
+                "Content-Type": "application/json; charset=utf-8",
+                ...corsHeaders(CORS_IMPORT_ALL),
+            });
+            res.end(
+                JSON.stringify({
+                    error: "No snapshot imported yet",
+                    code: "activity-work-import-latest-empty",
+                }),
+            );
+            return;
+        }
+
+        const byteLength = Buffer.byteLength(lastImportRawJsonBody, "utf8");
+        if (req.method === "HEAD") {
+            res.writeHead(200, {
+                "Content-Type": "application/json; charset=utf-8",
+                "Content-Length": String(byteLength),
+                "Cache-Control": "no-store",
+                ...corsHeaders(CORS_IMPORT_ALL),
+            });
+            res.end();
+            return;
+        }
+
         res.writeHead(200, {
             "Content-Type": "application/json; charset=utf-8",
-            "Content-Length": String(byteLength),
             "Cache-Control": "no-store",
             ...corsHeaders(CORS_IMPORT_ALL),
         });
-        res.end();
-        return;
-    }
-
-    res.writeHead(200, {
-        "Content-Type": "application/json; charset=utf-8",
-        "Cache-Control": "no-store",
-        ...corsHeaders(CORS_IMPORT_ALL),
+        res.end(lastImportRawJsonBody, "utf8");
+    })().catch((err) => {
+        // eslint-disable-next-line no-console
+        console.error("[activitywork-import-latest]", err);
+        res.writeHead(500, { "Content-Type": "application/json; charset=utf-8" });
+        res.end(JSON.stringify({ error: "Internal error", code: "activity-work-import-latest-unknown" }));
     });
-    res.end(lastImportRawJsonBody, "utf8");
 });
 
 WebApp.connectHandlers.use((req, res, next) => {
@@ -301,27 +328,28 @@ WebApp.connectHandlers.use((req, res, next) => {
         return;
     }
 
-    const secret = process.env.ACTIVITYWORK_IMPORT_SHARED_SECRET;
-    if (!importSecretOk(req, secret)) {
-        sendJson(res, 401, {
-            error: "Invalid or missing import credentials",
-            code: IMPORT_ERROR_CODES.unauthorized,
-        });
-        return;
-    }
-
-    const clientKey = getClientKey(req);
-    if (!checkRateLimit(clientKey)) {
-        sendJson(res, 429, {
-            error: "Too many import requests",
-            code: IMPORT_ERROR_CODES.rateLimit,
-        });
-        return;
-    }
-
     const maxBytes = getMaxImportBytes();
 
     (async () => {
+        const secret = process.env.ACTIVITYWORK_IMPORT_SHARED_SECRET;
+        const auth = await authorizeImport(req, secret);
+        if (!auth.ok) {
+            sendJson(res, 401, {
+                error: "Invalid or missing import credentials",
+                code: IMPORT_ERROR_CODES.unauthorized,
+            });
+            return;
+        }
+
+        const clientKey = getClientKey(req);
+        if (!checkRateLimit(clientKey)) {
+            sendJson(res, 429, {
+                error: "Too many import requests",
+                code: IMPORT_ERROR_CODES.rateLimit,
+            });
+            return;
+        }
+
         let buf;
         try {
             buf = await readBodyLimited(req, maxBytes);
@@ -403,9 +431,29 @@ WebApp.connectHandlers.use((req, res, next) => {
         };
         lastImportRawJsonBody = text;
 
+        if (auth.userId) {
+            try {
+                await ActivityWorkImports.insertAsync({
+                    userId: auth.userId,
+                    receivedAt: new Date(),
+                    byteLength: buf.length,
+                    ...(range != null ? { range } : {}),
+                    ...(eventCount != null ? { eventCount } : {}),
+                    ...(bucketId != null ? { bucketId } : {}),
+                    ...(p.truncated === true ? { truncated: true } : {}),
+                    ...(userAgent != null ? { userAgent } : {}),
+                    payload: parsedWrapper.value,
+                });
+            } catch (err) {
+                // eslint-disable-next-line no-console
+                console.error("[activitywork-import-insert]", err);
+            }
+        }
+
         sendJson(res, 200, {
             ok: true,
             imported: lastImportRecord,
+            attributed: auth.userId ? true : false,
         });
     })().catch((err) => {
         // eslint-disable-next-line no-console
