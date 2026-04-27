@@ -19,6 +19,14 @@ export const ACTIVITYWORK_IMPORT_LATEST_JSON_PATH =
 
 const IMPORT_HEADER_SECRET = "x-activitywork-import-secret";
 
+/** @param {string | undefined} name */
+function envTruthy(name) {
+    const v = process.env[name];
+    if (v == null || v === "") return false;
+    const s = String(v).trim().toLowerCase();
+    return s === "1" || s === "true" || s === "yes";
+}
+
 /**
  * Last successful snapshot import (HTTP POST). In-memory only.
  * @typedef {{
@@ -164,6 +172,28 @@ async function authorizeImport(req, secret) {
         return { ok: true, userId: null };
     }
     return { ok: false, userId: null };
+}
+
+/**
+ * Auth for `POST /api/activitywork/import` only.
+ *
+ * When `ACTIVITYWORK_IMPORT_POST_REQUIRES_USER_TOKEN` is `true` / `1` / `yes`,
+ * only `Authorization: Bearer <raw per-user token>` that matches a document in
+ * {@link ActivityWorkPushTokens} is accepted (multi-tenant production). Legacy
+ * shared-secret Bearer / header is **not** accepted on POST.
+ *
+ * Otherwise uses {@link authorizeImport} (per-user Bearer **or** optional
+ * `ACTIVITYWORK_IMPORT_SHARED_SECRET` for migration).
+ *
+ * @param {import('http').IncomingMessage} req
+ * @returns {Promise<{ ok: boolean; userId: string | null }>}
+ */
+async function authorizeImportPost(req) {
+    if (envTruthy("ACTIVITYWORK_IMPORT_POST_REQUIRES_USER_TOKEN")) {
+        const userId = await resolveUserIdFromRequest(req);
+        return userId ? { ok: true, userId } : { ok: false, userId: null };
+    }
+    return authorizeImport(req, process.env.ACTIVITYWORK_IMPORT_SHARED_SECRET);
 }
 
 /**
@@ -331,8 +361,7 @@ WebApp.connectHandlers.use((req, res, next) => {
     const maxBytes = getMaxImportBytes();
 
     (async () => {
-        const secret = process.env.ACTIVITYWORK_IMPORT_SHARED_SECRET;
-        const auth = await authorizeImport(req, secret);
+        const auth = await authorizeImportPost(req);
         if (!auth.ok) {
             sendJson(res, 401, {
                 error: "Invalid or missing import credentials",

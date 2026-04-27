@@ -46,8 +46,12 @@ This app ships as a **Docker** image: multi-stage build runs `meteor build`, the
    | `ROOT_URL`   | **Optional on Render.** If unset, the container entrypoint sets it from Render’s built-in `RENDER_EXTERNAL_URL` (your `https://…onrender.com` URL). Set `ROOT_URL` yourself when you use a **custom domain** so it matches the public URL. |
    | `BIND_IP`    | Optional; defaults to `0.0.0.0` in the image. |
    | `NODE_ENV`   | `production` (optional; also set in [`render.yaml`](render.yaml) for Blueprints). |
+   | `ACTIVITYWORK_IMPORT_SHARED_SECRET` | **Optional.** Legacy shared secret: `x-activitywork-import-secret` or `Authorization: Bearer <same value>`. Does **not** attribute pushes to a user; see [multi-tenant deploy notes](docs/deploy-multitenant-activitywork-import.md). |
+   | `ACTIVITYWORK_IMPORT_POST_REQUIRES_USER_TOKEN` | **Optional.** Set to `true` on production so **`POST /api/activitywork/import`** only accepts per-user Bearer tokens created in the app (stored hashed in Mongo). |
 
    Render injects **`PORT`** and **`RENDER_EXTERNAL_URL`**; Meteor reads `PORT` automatically.
+
+   **Multi-tenant import:** each user generates a push token in the UI and puts it in local **aw-gateway**; details and migration from a single global `PUSH_TOKEN` are in [`docs/deploy-multitenant-activitywork-import.md`](docs/deploy-multitenant-activitywork-import.md).
 
 5. Deploy. First build can take **15–25 minutes** while Meteor downloads toolchains inside Docker.
 

@@ -18,3 +18,11 @@ services:
         sync: false
       - key: MONGO_URL
         sync: false
+      # Optional legacy gate for GET /api/activitywork/import/latest (and for POST
+      # when ACTIVITYWORK_IMPORT_POST_REQUIRES_USER_TOKEN is unset/false).
+      - key: ACTIVITYWORK_IMPORT_SHARED_SECRET
+        sync: false
+      # When true, POST /api/activitywork/import only accepts Bearer tokens that
+      # match a per-user token generated in the app (Mongo). Recommended for prod.
+      - key: ACTIVITYWORK_IMPORT_POST_REQUIRES_USER_TOKEN
+        sync: false

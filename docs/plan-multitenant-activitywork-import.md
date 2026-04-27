@@ -2,7 +2,7 @@
 
 **Scope:** This plan targets **TimeHuddlePlaceholder** only. **aw-gateway** already sends `POST` + optional `Authorization: Bearer <token>`; this app will learn to **resolve a user from that token** and **store snapshots per user** instead of relying on a single global `ACTIVITYWORK_IMPORT_SHARED_SECRET` for all testers.
 
-**See also:** [agent-handover-activitywork-timehuddle.md](agent-handover-activitywork-timehuddle.md), [handoff-manual-import-from-runtime.md](handoff-manual-import-from-runtime.md).
+**See also:** [agent-handover-activitywork-timehuddle.md](agent-handover-activitywork-timehuddle.md), [handoff-manual-import-from-runtime.md](handoff-manual-import-from-runtime.md), [deploy-multitenant-activitywork-import.md](deploy-multitenant-activitywork-import.md) (Render / env / migration).
 
 **Links:** Test deploy [timehuddleplaceholderx.onrender.com](https://timehuddleplaceholderx.onrender.com/) · Gateway repo [github.com/SarkarShubhdeep/aw-gateway](https://github.com/SarkarShubhdeep/aw-gateway)
 
