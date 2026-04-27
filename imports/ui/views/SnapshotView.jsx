@@ -1,6 +1,8 @@
 import * as React from "react";
 import {
     AppWindow,
+    ArrowUpRight,
+    ChevronDown,
     Chrome,
     Code2,
     Globe,
@@ -11,6 +13,11 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
     Card,
     CardContent,
@@ -135,6 +142,8 @@ export function SnapshotRefreshButton({ loading, refresh }) {
  * @param {{ data: { record: Record<string, unknown>; payload: Record<string, unknown> } | null; error: string | null }} props
  */
 export function SnapshotPayloadPanel({ data, error }) {
+    const [payloadMetaOpen, setPayloadMetaOpen] = React.useState(false);
+
     const events = React.useMemo(
         () => normalizeEvents(data?.payload?.events),
         [data],
@@ -181,7 +190,7 @@ export function SnapshotPayloadPanel({ data, error }) {
     const userAgent = record ? record.userAgent : undefined;
 
     return (
-        <>
+        <div className={cn(payload && "flex h-full min-h-0 flex-col gap-3")}>
             {error ? (
                 <p className="text-destructive" role="alert">
                     {error}
@@ -214,119 +223,168 @@ export function SnapshotPayloadPanel({ data, error }) {
                 </div>
             ) : (
                 <>
-                    <div className="flex flex-wrap items-center gap-2">
-                        <span className="inline-flex w-fit rounded-full border border-border bg-muted/40 px-2.5 py-0.5 text-xs font-medium text-foreground">
-                            {pushSourceLabel(userAgent)}
-                        </span>
-                        {rangePreset ? (
-                            <span className="inline-flex w-fit rounded-full border border-border bg-primary/10 text-primary px-2.5 py-0.5 text-xs font-medium">
-                                range: {rangePreset}
-                            </span>
-                        ) : null}
-                        {truncated ? (
-                            <span className="inline-flex w-fit rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
-                                Truncated (per-bucket limit)
-                            </span>
-                        ) : null}
-                        {schemaVersion != null ? (
-                            <span className="inline-flex w-fit rounded-full border border-border bg-muted/40 px-2.5 py-0.5 text-[11px] font-mono text-muted-foreground">
-                                schemaVersion {schemaVersion}
-                            </span>
-                        ) : null}
-                    </div>
+                    <Collapsible
+                        open={payloadMetaOpen}
+                        onOpenChange={setPayloadMetaOpen}
+                        className="shrink-0 space-y-1"
+                    >
+                        <CollapsibleTrigger asChild>
+                            <button
+                                type="button"
+                                className="flex w-full items-center justify-between gap-2 rounded-md border border-border bg-muted/30 px-3 py-2 text-left text-sm font-medium text-foreground hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                            >
+                                <span>Payload details</span>
+                                <ChevronDown
+                                    className={cn(
+                                        "h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200",
+                                        payloadMetaOpen && "rotate-180",
+                                    )}
+                                    aria-hidden
+                                />
+                            </button>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="space-y-3 p-3 bg-muted/30 rounded-md border border-border">
+                            <div className="flex flex-wrap items-center gap-2 pt-1">
+                                <span className="inline-flex w-fit rounded-full border border-border bg-muted/40 px-2.5 py-0.5 text-xs font-medium text-foreground">
+                                    {pushSourceLabel(userAgent)}
+                                </span>
+                                {rangePreset ? (
+                                    <span className="inline-flex w-fit rounded-full border border-border bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+                                        range: {rangePreset}
+                                    </span>
+                                ) : null}
+                                {truncated ? (
+                                    <span className="inline-flex w-fit rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
+                                        Truncated (per-bucket limit)
+                                    </span>
+                                ) : null}
+                                {schemaVersion != null ? (
+                                    <span className="inline-flex w-fit rounded-full border border-border bg-muted/40 px-2.5 py-0.5 text-[11px] font-mono text-muted-foreground">
+                                        schemaVersion {schemaVersion}
+                                    </span>
+                                ) : null}
+                            </div>
 
-                    <dl className="grid gap-3 text-muted-foreground sm:grid-cols-2">
-                        {storedAt ? (
-                            <div>
-                                <dt className="font-medium text-foreground">
-                                    Received at
-                                </dt>
-                                <dd>{new Date(storedAt).toLocaleString()}</dd>
-                            </div>
-                        ) : null}
-                        {generatedAt ? (
-                            <div>
-                                <dt className="font-medium text-foreground">
-                                    Generated at (source)
-                                </dt>
-                                <dd>
-                                    {new Date(generatedAt).toLocaleString()}
-                                </dd>
-                            </div>
-                        ) : null}
-                        {rangeStart ? (
-                            <div>
-                                <dt className="font-medium text-foreground">
-                                    Range start
-                                </dt>
-                                <dd className="font-mono text-xs">
-                                    {new Date(rangeStart).toLocaleString()}
-                                </dd>
-                            </div>
-                        ) : null}
-                        {rangeEnd ? (
-                            <div>
-                                <dt className="font-medium text-foreground">
-                                    Range end
-                                </dt>
-                                <dd className="font-mono text-xs">
-                                    {new Date(rangeEnd).toLocaleString()}
-                                </dd>
-                            </div>
-                        ) : null}
-                        {eventCount != null ? (
-                            <div>
-                                <dt className="font-medium text-foreground">
-                                    Event count
-                                </dt>
-                                <dd>{eventCount}</dd>
-                            </div>
-                        ) : null}
-                        <div>
-                            <dt className="font-medium text-foreground">
-                                Total active time
-                            </dt>
-                            <dd className="font-mono text-xs">
-                                {formatDurationSeconds(totalActiveSeconds)}
-                            </dd>
-                        </div>
-                        {bucketId ? (
-                            <div className="sm:col-span-2">
-                                <dt className="font-medium text-foreground">
-                                    Bucket
-                                </dt>
-                                <dd className="break-all font-mono text-xs">
-                                    {bucketId}
-                                </dd>
-                            </div>
-                        ) : null}
-                        {sourceApp || sourceHost ? (
-                            <div className="sm:col-span-2">
-                                <dt className="font-medium text-foreground">
-                                    Source
-                                </dt>
-                                <dd className="font-mono text-xs">
-                                    {sourceApp ?? "unknown"}
-                                    {sourceHost ? ` @ ${sourceHost}` : ""}
-                                </dd>
-                            </div>
-                        ) : null}
-                        {byteLength != null ? (
-                            <div>
-                                <dt className="font-medium text-foreground">
-                                    Payload size
-                                </dt>
-                                <dd className="font-mono text-xs">
-                                    {formatByteSize(byteLength)}
-                                </dd>
-                            </div>
-                        ) : null}
-                    </dl>
+                            <dl className="grid gap-3 text-muted-foreground sm:grid-cols-2">
+                                {storedAt ? (
+                                    <div>
+                                        <dt className="font-medium text-foreground">
+                                            Received at
+                                        </dt>
+                                        <dd>
+                                            {new Date(
+                                                storedAt,
+                                            ).toLocaleString()}
+                                        </dd>
+                                    </div>
+                                ) : null}
+                                {generatedAt ? (
+                                    <div>
+                                        <dt className="font-medium text-foreground">
+                                            Generated at (source)
+                                        </dt>
+                                        <dd>
+                                            {new Date(
+                                                generatedAt,
+                                            ).toLocaleString()}
+                                        </dd>
+                                    </div>
+                                ) : null}
+                                {rangeStart ? (
+                                    <div>
+                                        <dt className="font-medium text-foreground">
+                                            Range start
+                                        </dt>
+                                        <dd className="font-mono text-xs">
+                                            {new Date(
+                                                rangeStart,
+                                            ).toLocaleString()}
+                                        </dd>
+                                    </div>
+                                ) : null}
+                                {rangeEnd ? (
+                                    <div>
+                                        <dt className="font-medium text-foreground">
+                                            Range end
+                                        </dt>
+                                        <dd className="font-mono text-xs">
+                                            {new Date(
+                                                rangeEnd,
+                                            ).toLocaleString()}
+                                        </dd>
+                                    </div>
+                                ) : null}
+                                {eventCount != null ? (
+                                    <div>
+                                        <dt className="font-medium text-foreground">
+                                            Event count
+                                        </dt>
+                                        <dd>{eventCount}</dd>
+                                    </div>
+                                ) : null}
+                                <div>
+                                    <dt className="font-medium text-foreground">
+                                        Total active time
+                                    </dt>
+                                    <dd className="font-mono text-xs">
+                                        {formatDurationSeconds(
+                                            totalActiveSeconds,
+                                        )}
+                                    </dd>
+                                </div>
+                                {bucketId ? (
+                                    <div className="sm:col-span-2">
+                                        <dt className="font-medium text-foreground">
+                                            Bucket
+                                        </dt>
+                                        <dd className="break-all font-mono text-xs">
+                                            {bucketId}
+                                        </dd>
+                                    </div>
+                                ) : null}
+                                {sourceApp || sourceHost ? (
+                                    <div className="sm:col-span-2">
+                                        <dt className="font-medium text-foreground">
+                                            Source
+                                        </dt>
+                                        <dd className="font-mono text-xs">
+                                            {sourceApp ?? "unknown"}
+                                            {sourceHost
+                                                ? ` @ ${sourceHost}`
+                                                : ""}
+                                        </dd>
+                                    </div>
+                                ) : null}
+                                {byteLength != null ? (
+                                    <div>
+                                        <dt className="font-medium text-foreground">
+                                            Payload size
+                                        </dt>
+                                        <dd className="font-mono text-xs">
+                                            {formatByteSize(byteLength)}
+                                        </dd>
+                                    </div>
+                                ) : null}
+                            </dl>
+                        </CollapsibleContent>
+                    </Collapsible>
 
-                    <div className="space-y-2 border-t border-border pt-3">
-                        <div className="flex items-center justify-between">
-                            <h3 className="text-sm font-medium text-foreground">
+                    <div className="flex min-h-0 flex-1 flex-col gap-2">
+                        <div className="flex shrink-0 items-center justify-between pt-3 px-3">
+                            <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
                                 Events
+                                <Button
+                                    type="button"
+                                    variant="default"
+                                    className="shrink-0 shadow-none pl-3 rounded-full"
+                                    size="sm"
+                                >
+                                    View JSON
+                                    <ArrowUpRight
+                                        className="h-4 w-4 shrink-0 transition-transform duration-200"
+                                        aria-hidden
+                                    />
+                                </Button>
                             </h3>
                             <p className="text-xs text-muted-foreground">
                                 {events.length} row
@@ -334,13 +392,13 @@ export function SnapshotPayloadPanel({ data, error }) {
                             </p>
                         </div>
                         {events.length === 0 ? (
-                            <p className="rounded-md border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
+                            <p className="shrink-0 rounded-md border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
                                 Snapshot contains no events for this range.
                             </p>
                         ) : (
-                            <div className="max-h-[65vh] overflow-auto rounded-md border border-border">
+                            <div className="min-h-0 flex-1 overflow-auto rounded-md border border-border">
                                 <Table className="text-xs">
-                                    <TableHeader className="sticky top-0 bg-background shadow-[inset_0_-1px_0_0_hsl(var(--border))]">
+                                    <TableHeader className="sticky top-0 z-10 bg-background shadow-[inset_0_-1px_0_0_hsl(var(--border))]">
                                         <TableRow>
                                             <TableHead className="whitespace-nowrap">
                                                 Start
@@ -426,15 +484,14 @@ export function SnapshotPayloadPanel({ data, error }) {
                                 </Table>
                             </div>
                         )}
+                        <p className="shrink-0 text-xs text-muted-foreground">
+                            Refreshes automatically every 6s while this tab is
+                            visible.
+                        </p>
                     </div>
-
-                    <p className="text-xs text-muted-foreground">
-                        Refreshes automatically every 6s while this tab is
-                        visible.
-                    </p>
                 </>
             )}
-        </>
+        </div>
     );
 }
 
@@ -445,9 +502,9 @@ export const SnapshotView = () => {
     const { data, loading, error, refresh } = useLastImportPayload();
 
     return (
-        <div className="flex flex-col items-center gap-2">
-            <Card className="w-full max-w-3xl shadow-none">
-                <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
+        <div className="flex min-h-0 flex-1 flex-col items-center gap-2">
+            <Card className="flex w-full max-w-3xl min-h-[min(32rem,85dvh)] flex-col shadow-none">
+                <CardHeader className="flex shrink-0 flex-row items-start justify-between gap-3 space-y-0">
                     <div className="space-y-1.5">
                         <CardTitle className="text-lg">
                             Pushed snapshot
@@ -467,7 +524,7 @@ export const SnapshotView = () => {
                         refresh={refresh}
                     />
                 </CardHeader>
-                <CardContent className="space-y-4 border-t pt-4 text-sm">
+                <CardContent className="flex min-h-0 flex-1 flex-col space-y-4 border-t pt-4 text-sm">
                     <SnapshotPayloadPanel data={data} error={error} />
                 </CardContent>
             </Card>
