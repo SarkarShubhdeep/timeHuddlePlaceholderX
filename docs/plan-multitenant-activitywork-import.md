@@ -38,12 +38,14 @@
 
 ## 4. Proposed architecture
 
-| Layer | Behavior |
-| ----- | -------- |
-| **Auth** | `accounts-password` (or `accounts-ui` for rapid prototyping); link registration to user profile. |
-| **Token storage** | Prefer **hashed** token in DB (compare HMAC/SHA-256 of incoming Bearer to stored hash). Optional: show plaintext **only once** on generation. |
-| **Resolution** | On import: `lookup userId by token hash` → if found, `insert` snapshot document with that `userId` + `receivedAt` + `payload`. |
-| **Global secret (optional)** | Keep `ACTIVITYWORK_IMPORT_SHARED_SECRET` as a **legacy / break-glass** or admin key during migration, or remove after cutover. |
+
+| Layer                        | Behavior                                                                                                                                      |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Auth**                     | `accounts-password` (or `accounts-ui` for rapid prototyping); link registration to user profile.                                              |
+| **Token storage**            | Prefer **hashed** token in DB (compare HMAC/SHA-256 of incoming Bearer to stored hash). Optional: show plaintext **only once** on generation. |
+| **Resolution**               | On import: `lookup userId by token hash` → if found, `insert` snapshot document with that `userId` + `receivedAt` + `payload`.                |
+| **Global secret (optional)** | Keep `ACTIVITYWORK_IMPORT_SHARED_SECRET` as a **legacy / break-glass** or admin key during migration, or remove after cutover.                |
+
 
 ---
 
@@ -94,13 +96,15 @@
 
 ## 9. Phased delivery (suggested)
 
-| Phase | Deliverable |
-| ----- | ----------- |
-| **A** | Add `accounts-password`, basic login/logout UI shell. |
-| **B** | Data model + methods: `generatePushToken`, `getImportHistory`, `getImportById` (or paginated). |
-| **C** | Rework `importHttp.js`: resolve user from Bearer hash; `insert` Mongo; deprecate or gate global-only path. |
-| **D** | Update “Pushed snapshot” to read from DB for current user; show history. |
+
+| Phase | Deliverable                                                                                                                             |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| **A** | Add `accounts-password`, basic login/logout UI shell.                                                                                   |
+| **B** | Data model + methods: `generatePushToken`, `getImportHistory`, `getImportById` (or paginated).                                          |
+| **C** | Rework `importHttp.js`: resolve user from Bearer hash; `insert` Mongo; deprecate or gate global-only path.                              |
+| **D** | Update “Pushed snapshot” to read from DB for current user; show history.                                                                |
 | **E** | Docs + README: how to pair [aw-gateway](https://github.com/SarkarShubhdeep/aw-gateway) with a **user-specific** token on the test site. |
+
 
 ---
 

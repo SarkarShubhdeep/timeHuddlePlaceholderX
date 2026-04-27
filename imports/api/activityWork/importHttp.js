@@ -1,4 +1,7 @@
 import { WebApp } from "meteor/webapp";
+
+import { hashActivityWorkPushToken } from "../pushToken/hashToken.js";
+import { ActivityWorkPushTokens } from "../pushToken/pushTokens.collection.js";
 import {
     IMPORT_ERROR_CODES,
     getMaxImportBytes,
@@ -113,17 +116,34 @@ function getClientKey(req) {
  * @param {import('http').IncomingMessage} req
  * @param {string | undefined} secret
  */
+/**
+ * @param {string} bearer
+ * @returns {boolean}
+ */
+function bearerMatchesUserPushToken(bearer) {
+    if (typeof bearer !== "string" || bearer.length === 0) return false;
+    const tokenHash = hashActivityWorkPushToken(bearer);
+    return Boolean(
+        ActivityWorkPushTokens.findOne(
+            { tokenHash },
+            { fields: { _id: 1 } },
+        ),
+    );
+}
+
+/**
+ * @param {import('http').IncomingMessage} req
+ * @param {string | undefined} secret
+ */
 function importSecretOk(req, secret) {
     if (secret == null || secret === "") return true;
     const h = req.headers[IMPORT_HEADER_SECRET];
     if (typeof h === "string" && h === secret) return true;
     const auth = req.headers.authorization;
-    if (
-        typeof auth === "string" &&
-        auth.startsWith("Bearer ") &&
-        auth.slice(7) === secret
-    ) {
-        return true;
+    if (typeof auth === "string" && auth.startsWith("Bearer ")) {
+        const bearer = auth.slice(7);
+        if (bearer === secret) return true;
+        if (bearerMatchesUserPushToken(bearer)) return true;
     }
     return false;
 }

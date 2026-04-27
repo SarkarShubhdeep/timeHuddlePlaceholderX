@@ -1,28 +1,18 @@
 import * as React from "react";
 import { Accounts } from "meteor/accounts-base";
 import { Meteor } from "meteor/meteor";
-import { ExternalLink } from "lucide-react";
-
 import { Button } from "@/components/ui/button";
 import {
     Card,
     CardContent,
     CardDescription,
-    CardFooter,
     CardHeader,
     CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-    Tabs,
-    TabsContent,
-    TabsList,
-    TabsTrigger,
-} from "@/components/ui/tabs";
-
-const PLACEHOLDER_RENDER_URL = "https://timehuddleplaceholderx.onrender.com/";
-const AW_GATEWAY_REPO = "https://github.com/SarkarShubhdeep/aw-gateway";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TimeHuddlePlaceholderIntroCard } from "@/ui/TimeHuddlePlaceholderIntroCard";
 
 function formatAuthError(err) {
     if (!err) return "";
@@ -82,68 +72,14 @@ export const LandingView = ({ loggingIn }) => {
     };
 
     return (
-        <div className="w-full max-w-lg flex flex-col gap-6">
-            <Card className="w-full shadow-none">
-                <CardHeader>
-                    <CardTitle className="text-2xl">
-                        TimeHuddle placeholder
-                    </CardTitle>
-                    <CardDescription>
-                        A small Meteor + React host used to exercise the
-                        ActivityWork snapshot path from your machine to a
-                        deployed URL—not the production TimeHuddle product.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3 text-sm text-muted-foreground">
-                    <p>
-                        Local{" "}
-                        <a
-                            href={AW_GATEWAY_REPO}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="font-medium text-foreground underline-offset-4 hover:underline"
-                        >
-                            aw-gateway
-                        </a>{" "}
-                        can POST snapshot JSON here so you can confirm payloads,
-                        timing, and auth against a real HTTPS endpoint (for
-                        example the{" "}
-                        <a
-                            href={PLACEHOLDER_RENDER_URL}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="font-medium text-foreground underline-offset-4 hover:underline"
-                        >
-                            Render test deploy
-                        </a>
-                        ). Sign in below to reach the in-app overview and pushed
-                        snapshot tabs; accounts are stored in this app&apos;s
-                        MongoDB database.
-                    </p>
-                </CardContent>
-                <CardFooter>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        asChild
-                        className="shadow-none"
-                    >
-                        <a
-                            href={PLACEHOLDER_RENDER_URL}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-2"
-                        >
-                            Open placeholder deploy
-                            <ExternalLink className="h-4 w-4" aria-hidden />
-                        </a>
-                    </Button>
-                </CardFooter>
-            </Card>
+        <div className="w-full max-w-lg flex flex-col gap-4">
+            <TimeHuddlePlaceholderIntroCard className="w-full shadow-none rounded-none" />
 
-            <Card className="w-full shadow-none">
+            <Card className="w-full shadow-none rounded-none">
                 <CardHeader className="pb-2">
-                    <CardTitle className="text-lg">Sign in to continue</CardTitle>
+                    <CardTitle className="text-lg">
+                        Sign in to continue
+                    </CardTitle>
                     <CardDescription>
                         Email and password are saved for this test app only.
                     </CardDescription>
@@ -158,7 +94,9 @@ export const LandingView = ({ loggingIn }) => {
                     >
                         <TabsList className="grid w-full grid-cols-2">
                             <TabsTrigger value="signin">Sign in</TabsTrigger>
-                            <TabsTrigger value="signup">Create account</TabsTrigger>
+                            <TabsTrigger value="signup">
+                                Create account
+                            </TabsTrigger>
                         </TabsList>
                         <TabsContent value="signin" className="mt-4">
                             <form
@@ -273,7 +211,9 @@ export const LandingView = ({ loggingIn }) => {
                                     className="w-full"
                                     disabled={submitting}
                                 >
-                                    {submitting ? "Creating account…" : "Create account"}
+                                    {submitting
+                                        ? "Creating account…"
+                                        : "Create account"}
                                 </Button>
                             </form>
                         </TabsContent>

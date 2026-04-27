@@ -1,30 +1,12 @@
 import * as React from "react";
 import { Meteor } from "meteor/meteor";
 import { useTracker } from "meteor/react-meteor-data";
-import { ExternalLink, LogOut, Moon, Sun } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardFooter,
-    CardHeader,
-    CardTitle,
-} from "@/components/ui/card";
-import {
-    Tabs,
-    TabsContent,
-    TabsList,
-    TabsTrigger,
-} from "@/components/ui/tabs";
 import { LandingView } from "@/ui/views/LandingView";
-import { OverviewView } from "@/ui/views/OverviewView";
-import { SnapshotView } from "@/ui/views/SnapshotView";
+import { HomeView } from "@/ui/views/HomeView";
+import { ThemeToggleFooter } from "@/ui/ThemeToggleFooter";
 
-const PLACEHOLDER_RENDER_URL = "https://timehuddleplaceholderx.onrender.com/";
 const THEME_STORAGE_KEY = "timehuddle-theme";
-const ACTIVE_TAB_STORAGE_KEY = "timehuddle-active-tab";
 
 function readInitialDark() {
     if (typeof window === "undefined") return false;
@@ -34,21 +16,12 @@ function readInitialDark() {
     return window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
 
-function readInitialTab() {
-    if (typeof window === "undefined") return "overview";
-    const stored = window.localStorage.getItem(ACTIVE_TAB_STORAGE_KEY);
-    return stored === "snapshot" ? "snapshot" : "overview";
-}
-
 export const App = () => {
     const { user, loggingIn } = useTracker(() => ({
         user: Meteor.user(),
         loggingIn: Meteor.loggingIn(),
     }));
     const [isDark, setIsDark] = React.useState(readInitialDark);
-    const [activeTab, setActiveTab] = React.useState(readInitialTab);
-
-    const userEmail = user?.emails?.[0]?.address ?? null;
 
     React.useEffect(() => {
         const root = document.documentElement;
@@ -62,148 +35,43 @@ export const App = () => {
     }, [isDark]);
 
     React.useEffect(() => {
-        window.localStorage.setItem(ACTIVE_TAB_STORAGE_KEY, activeTab);
-    }, [activeTab]);
+        const onKeyDown = (e) => {
+            if (e.defaultPrevented) return;
+            if (e.metaKey || e.ctrlKey || e.altKey) return;
+            if (e.key !== "k" && e.key !== "K") return;
+            const t = e.target;
+            if (t instanceof HTMLElement) {
+                const tag = t.tagName;
+                if (
+                    tag === "INPUT" ||
+                    tag === "TEXTAREA" ||
+                    tag === "SELECT" ||
+                    t.isContentEditable
+                ) {
+                    return;
+                }
+            }
+            e.preventDefault();
+            setIsDark((d) => !d);
+        };
+        window.addEventListener("keydown", onKeyDown);
+        return () => window.removeEventListener("keydown", onKeyDown);
+    }, [setIsDark]);
 
     if (!user) {
         return (
             <div className="min-h-screen flex flex-col bg-background text-foreground">
                 <div className="flex flex-1 flex-col items-center gap-4 p-4 w-full max-w-3xl mx-auto">
                     <LandingView loggingIn={loggingIn} />
-                    <footer className="w-full flex justify-center py-3">
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="rounded-full"
-                            onClick={() => setIsDark((d) => !d)}
-                            aria-label={
-                                isDark
-                                    ? "Switch to light mode"
-                                    : "Switch to dark mode"
-                            }
-                        >
-                            {isDark ? (
-                                <Sun className="h-5 w-5" aria-hidden />
-                            ) : (
-                                <Moon className="h-5 w-5" aria-hidden />
-                            )}
-                        </Button>
-                    </footer>
+                    <ThemeToggleFooter isDark={isDark} setIsDark={setIsDark} />
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen flex flex-col bg-background text-foreground">
-            <div className="flex flex-1 flex-col items-center gap-2 p-4 w-full max-w-3xl mx-auto">
-                <div className="w-full max-w-lg flex flex-wrap items-center justify-end gap-2">
-                    {userEmail ? (
-                        <span className="text-xs text-muted-foreground truncate max-w-[min(100%,14rem)] mr-auto">
-                            {userEmail}
-                        </span>
-                    ) : (
-                        <span className="text-xs text-muted-foreground mr-auto">
-                            Signed in
-                        </span>
-                    )}
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="shadow-none"
-                        onClick={() => Meteor.logout()}
-                    >
-                        <LogOut className="h-4 w-4" aria-hidden />
-                        Sign out
-                    </Button>
-                </div>
-
-                <Card className="w-full max-w-lg shadow-none">
-                    <CardHeader>
-                        <CardTitle className="text-2xl">
-                            TimeHuddle placeholder
-                        </CardTitle>
-                        <CardDescription>
-                            This Meteor + React app exists for testing and
-                            integration checks. It is not the full TimeHuddle
-                            product.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-3 text-sm text-muted-foreground">
-                        <p>
-                            Production TimeHuddle is hosted on{" "}
-                            <span className="font-medium text-foreground">
-                                Vercel
-                            </span>
-                            . Use the link below once you have the real
-                            deployment URL (see README for the same
-                            placeholder).
-                        </p>
-                    </CardContent>
-                    <CardFooter>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            asChild
-                            className="shadow-none"
-                        >
-                            <a
-                                href={PLACEHOLDER_RENDER_URL}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-2"
-                            >
-                                Open TimeHuddle (placeholder URL)
-                                <ExternalLink className="h-4 w-4" aria-hidden />
-                            </a>
-                        </Button>
-                    </CardFooter>
-                </Card>
-
-                <Tabs
-                    value={activeTab}
-                    onValueChange={setActiveTab}
-                    className="w-full flex flex-col items-center gap-2"
-                >
-                    <TabsList className="w-full max-w-lg">
-                        <TabsTrigger value="overview" className="flex-1">
-                            Overview
-                        </TabsTrigger>
-                        <TabsTrigger value="snapshot" className="flex-1">
-                            Pushed Snapshot
-                        </TabsTrigger>
-                    </TabsList>
-                    <TabsContent value="overview" className="w-full mt-0">
-                        <OverviewView />
-                    </TabsContent>
-                    <TabsContent value="snapshot" className="w-full mt-0">
-                        <SnapshotView />
-                    </TabsContent>
-                </Tabs>
-
-                <footer className="w-full flex justify-center py-3">
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="rounded-full"
-                        onClick={() => setIsDark((d) => !d)}
-                        aria-label={
-                            isDark
-                                ? "Switch to light mode"
-                                : "Switch to dark mode"
-                        }
-                    >
-                        {isDark ? (
-                            <Sun className="h-5 w-5" aria-hidden />
-                        ) : (
-                            <Moon className="h-5 w-5" aria-hidden />
-                        )}
-                    </Button>
-                </footer>
-            </div>
+        <div className="flex h-dvh flex-col overflow-hidden bg-background text-foreground">
+            <HomeView isDark={isDark} setIsDark={setIsDark} />
         </div>
     );
 };
